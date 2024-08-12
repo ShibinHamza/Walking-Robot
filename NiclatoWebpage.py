@@ -99,6 +99,7 @@ def start_streaming(client):
         try:
             client.sendall(header)
             client.sendall(cframe)
+            print(clock);
         except OSError:
             break
     client.close()
@@ -108,10 +109,10 @@ def handle_client(client):
         data = client.recv(1024).decode('utf-8')
         if "GET / " in data or "GET /HTTP" in data:
             serve_html(client)
-            client.close()
-        if "GET /stream" in data:
-            start_streaming(client)
-            print("Streaming ok \n")
+#            client.close()
+#        #if "GET /stream" in data:
+#            start_streaming(client)
+#            print("Streaming ok \n")
         if "POST /" in data:
             if "POST /button1" in data:
                 handle_button_press("button1")
@@ -124,10 +125,11 @@ def handle_client(client):
             elif "POST /button5" in data:
                 handle_button_press("button5")
 
-            client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
-            client.close()
+        start_streaming(client)
+        print("Streaming ok \n")
+        client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+       # client.close()
 
-        client.close()
     except OSError:
         client.close()
 
