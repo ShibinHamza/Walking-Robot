@@ -4,7 +4,8 @@
 #define NICLA_SERIAL Serial3
 
 Dynamixel2Arduino dxl(DXL_SERIAL, -1);
-const uint8_t DXL_ID = 3;
+const uint8_t DXL_ID_1 = 1;
+const uint8_t DXL_ID_2 = 3;
 const float DXL_PROTOCOL_VERSION = 2.0;
 
 void setup() {
@@ -20,17 +21,24 @@ void setup() {
   Serial.println("Listening to Nicla! \n");
 
   //Motor Setup
-  dxl.ping(DXL_ID);
+  dxl.ping(DXL_ID_1);
+  dxl.ping(DXL_ID_2);
 
   // Turn off torque when configuring items in EEPROM area
-  dxl.torqueOff(DXL_ID);
-  dxl.setOperatingMode(DXL_ID, OP_VELOCITY);
-  dxl.torqueOn(DXL_ID);
+  dxl.torqueOff(DXL_ID_1);
+  dxl.setOperatingMode(DXL_ID_1, OP_VELOCITY);
+  dxl.torqueOn(DXL_ID_1);
+
+  // Turn off torque when configuring items in EEPROM area
+  dxl.torqueOff(DXL_ID_2);
+  dxl.setOperatingMode(DXL_ID_2, OP_VELOCITY);
+  dxl.torqueOn(DXL_ID_2);
 }
 
 // Variable for storing incoming data
 String incoming = ""; 
-int velocity_dxl = 0;
+int v_l = 0;
+int v_r = 0;
 int vel_incr = 10;
 
 bool RUN_STATUS = false;
@@ -53,41 +61,52 @@ void loop() {
       Serial.print("Message from Nicla: ");
       Serial.println(incoming);
       
-      if (incoming=="Start") {
+      if (incoming=="Forward") {
 
-        velocity_dxl = 20;
+        v_l = 60;
+        v_r = -1* v_l;
         RUN_STATUS = true;
-        Serial.print("Motor in start mode \n");
+        Serial.print("Motor in forward mode \n");
 
-      } else if (incoming == "Raise") {
-
-        if(RUN_STATUS) {
-          velocity_dxl = velocity_dxl + vel_incr;
-        }
-
-      } else if (incoming == "Lower") {
+      } else if (incoming == "Reverse") {
 
         if(RUN_STATUS) {
-          velocity_dxl = velocity_dxl - vel_incr;
+          v_l = -60;
+          v_r = -1*v_l;
         }
+
+      } else if (incoming == "Left") {
+     
+          v_l = 5;
+          v_r = 50;
+        
+      } else if (incoming == "Right") {
+        
+        v_l = 50;
+        v_r = 5;      
 
       } else if (incoming == "Stop") {
+        
         RUN_STATUS = false;
-        velocity_dxl = 0;
-        Serial.print("Motor in Stop mode \n");
+        v_l = 0;
+        v_r = 0;       
 
       } else {
 
-        velocity_dxl = 0;
+        v_l = 0;
+        v_r = 0;
 
       }
 
       
-      dxl.setGoalVelocity(DXL_ID, velocity_dxl, UNIT_RPM);
+      dxl.setGoalVelocity(DXL_ID_1, v_l, UNIT_RPM);
       Serial.print("Present Velocity(rpm) : ");
-      Serial.println(dxl.getPresentVelocity(DXL_ID, UNIT_RPM));
-    
-      
+      Serial.println(dxl.getPresentVelocity(DXL_ID_1, UNIT_RPM));
+
+      dxl.setGoalVelocity(DXL_ID_2, v_r, UNIT_RPM);
+      Serial.print("Present Velocity(rpm) : ");
+      Serial.println(dxl.getPresentVelocity(DXL_ID_2, UNIT_RPM));
+
 
       // Clear the incoming data string for the next message
       incoming = ""; 

@@ -38,7 +38,7 @@ def handle_button_press(button_id):
     elif button_id == "button4":
         print("Button 4 pressed \n")
         uart.write("Right\n")
-    elif button_id == "button4":
+    elif button_id == "button5":
         print("Button 5 pressed \n")
         uart.write("Stop\n")
 
@@ -56,7 +56,7 @@ def serve_html(client):
         "</style>"
         "</head>"
         "<body><h1>MJPEG Stream</h1>"
-        "<img src='/stream' width='320' height='240' />"
+        "<img src='/stream' width='480' height='720' />"
         "<div class='container'>"
         "<h2>Motor Controls</h2>"
         "<div class='button-container'>"
@@ -108,9 +108,11 @@ def handle_client(client):
         data = client.recv(1024).decode('utf-8')
         if "GET / " in data or "GET /HTTP" in data:
             serve_html(client)
-        elif "GET /stream" in data:
+            client.close()
+        if "GET /stream" in data:
             start_streaming(client)
-        elif "POST /" in data:
+            print("Streaming ok \n")
+        if "POST /" in data:
             if "POST /button1" in data:
                 handle_button_press("button1")
             elif "POST /button2" in data:
@@ -119,10 +121,13 @@ def handle_client(client):
                 handle_button_press("button3")
             elif "POST /button4" in data:
                 handle_button_press("button4")
+            elif "POST /button5" in data:
+                handle_button_press("button5")
+
             client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
             client.close()
-        else:
-            client.close()
+
+        client.close()
     except OSError:
         client.close()
 
