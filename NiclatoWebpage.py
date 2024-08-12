@@ -28,16 +28,19 @@ print("AP mode started. SSID: {} IP: {}".format(SSID, wlan.ifconfig()[0]))
 def handle_button_press(button_id):
     if button_id == "button1":
         print("Button 1 pressed \n")
-        uart.write("Start\n")
+        uart.write("Forward\n")
     elif button_id == "button2":
         print("Button 2 pressed \n")
-        uart.write("Stop\n")
+        uart.write("Reverse\n")
     elif button_id == "button3":
         print("Button 3 pressed \n")
-        uart.write("Raise\n")
+        uart.write("Left\n")
     elif button_id == "button4":
         print("Button 4 pressed \n")
-        uart.write("Lower\n")
+        uart.write("Right\n")
+    elif button_id == "button4":
+        print("Button 5 pressed \n")
+        uart.write("Stop\n")
 
 def serve_html(client):
     html = (
@@ -57,10 +60,11 @@ def serve_html(client):
         "<div class='container'>"
         "<h2>Motor Controls</h2>"
         "<div class='button-container'>"
-        "<button onclick=\"sendRequest('button1')\">Start</button>"
-        "<button onclick=\"sendRequest('button2')\">Stop</button>"
-        "<button onclick=\"sendRequest('button3')\">Increase Speed</button>"
-        "<button onclick=\"sendRequest('button4')\">Reduce Speed</button>"
+        "<button onclick=\"sendRequest('button1')\">Forward</button>"
+        "<button onclick=\"sendRequest('button2')\">Reverse</button>"
+        "<button onclick=\"sendRequest('button3')\">Left</button>"
+        "<button onclick=\"sendRequest('button4')\">Right</button>"
+        "<button onclick=\"sendRequest('button5')\">Stop</button>"
         "</div></div>"
         "<script>"
         "function sendRequest(buttonId) {"
