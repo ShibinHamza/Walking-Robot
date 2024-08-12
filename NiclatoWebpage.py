@@ -64,7 +64,7 @@ def serve_html(client):
         "</div></div>"
         "<script>"
         "function sendRequest(buttonId) {"
-        "fetch('/' + buttonId)"
+        "fetch('/' + buttonId, { method: 'POST' })"
         ".then(response => console.log(buttonId + ' pressed'))"
         ".catch(error => console.error('Error:', error));"
         "}"
@@ -106,14 +106,14 @@ def handle_client(client):
             serve_html(client)
         elif "GET /stream" in data:
             start_streaming(client)
-        elif "GET /button" in data:
-            if "GET /button1" in data:
+        elif "POST /" in data:
+            if "POST /button1" in data:
                 handle_button_press("button1")
-            elif "GET /button2" in data:
+            elif "POST /button2" in data:
                 handle_button_press("button2")
-            elif "GET /button3" in data:
+            elif "POST /button3" in data:
                 handle_button_press("button3")
-            elif "GET /button4" in data:
+            elif "POST /button4" in data:
                 handle_button_press("button4")
             client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
             client.close()
