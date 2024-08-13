@@ -43,6 +43,7 @@ def handle_button_press(button_id):
         uart.write("Stop\n")
 
 def serve_html(client):
+#    data = client.recv(1024)
     html = (
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
@@ -76,9 +77,10 @@ def serve_html(client):
         "</body></html>\r\n"
     )
     client.send(html)
-    client.close()
 
-def start_streaming(client):
+
+def start_streaming(client,data):
+#    data = client.recv(1024)
     clock = time.clock()
     client.send(
         "HTTP/1.1 200 OK\r\n"
@@ -87,6 +89,7 @@ def start_streaming(client):
         "Cache-Control: no-cache\r\n"
         "Pragma: no-cache\r\n\r\n"
     )
+#    print(clock.fps())
     while True:
         clock.tick()
         frame = sensor.snapshot()
@@ -96,64 +99,124 @@ def start_streaming(client):
             "Content-Type: image/jpeg\r\n"
             "Content-Length:" + str(cframe.size()) + "\r\n\r\n"
         )
+
         try:
             client.sendall(header)
             client.sendall(cframe)
-            print(clock);
         except OSError:
-            break
-    client.close()
+            break  # Exit the loop if the client disconnects
 
-def handle_client(client):
-    try:
-        data = client.recv(1024).decode('utf-8')
-        if "GET / " in data or "GET /HTTP" in data:
-            serve_html(client)
-#            client.close()
-#        #if "GET /stream" in data:
-#            start_streaming(client)
-#            print("Streaming ok \n")
+        client.settimeout(0)
         if "POST /" in data:
             if "POST /button1" in data:
-                handle_button_press("button1")
+               handle_button_press("button1")
             elif "POST /button2" in data:
-                handle_button_press("button2")
+               handle_button_press("button2")
             elif "POST /button3" in data:
-                handle_button_press("button3")
+               handle_button_press("button3")
             elif "POST /button4" in data:
-                handle_button_press("button4")
+               handle_button_press("button4")
             elif "POST /button5" in data:
-                handle_button_press("button5")
+               handle_button_press("button5")
+            else:
+                continue
+        client.settimeout(None)
 
-        start_streaming(client)
-        print("Streaming ok \n")
-        client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+#    print(clock.fps())
+
+
+#def handle_client(client):
+#    try:
+#        data = client.recv(1024).decode('utf-8')
+#        if "GET / " in data or "GET /HTTP" in data:
+#            serve_html(client)
+#            start_streaming(client)
+#            print("Streaming ok 2 \n")
+#        elif "GET /stream" in data:
+#            start_streaming(client)
+#            print("Streaming ok \n")
+#        elif "POST /" in data:
+#            if "POST /button1" in data:
+#                handle_button_press("button1")
+#            elif "POST /button2" in data:
+#                handle_button_press("button2")
+#            elif "POST /button3" in data:
+#                handle_button_press("button3")
+#            elif "POST /button4" in data:
+#                handle_button_press("button4")
+#            elif "POST /button5" in data:
+#                handle_button_press("button5")
+#        else:
+#            start_streaming(client)
+#            print("Streaming ok 2 \n")
+
+#        start_streaming(client)
+#        print("Streaming ok \n")
+#        client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
        # client.close()
 
-    except OSError:
-        client.close()
+#    except OSError:
+#        client.close()
 
 server = None
-clients = []
+#clients = []
 
 while True:
     if server is None:
+        # Create server socket
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
+        # Bind and listen
         server.bind([HOST, PORT])
         server.listen(5)
-        server.setblocking(False)
+        # Set server socket to blocking
+#        server.setblocking(True)
         print("Server started. Waiting for connections...")
 
     try:
+#        print("Waiting for connections..")
         client, addr = server.accept()
-        client.setblocking(False)
-        clients.append(client)
-        print("Connected to " + addr[0] + ":" + str(addr[1]))
-    except OSError:
-        pass
+    except OSError as e:
+        server.close()
+        server = None
+        print("server socket error:", e)
+        continue
 
-    readable, _, _ = select.select(clients, [], [], 0.05)
-    for client in readable:
-        handle_client(client)
-        clients.remove(client)
+    try:
+        # set client socket timeout to 2s
+#        client.settimeout(5.0)
+        print("Connected to " + addr[0] + ":" + str(addr[1]))
+
+        # Read initial request
+        data = client.recv(1024)
+        if "GET / " in data or "GET /HTTP" in data:
+            serve_html(client)
+        elif "GET /stream" in data:
+            start_streaming(client,data)
+
+
+    except OSError as e:
+        client.close()
+        print("client socket error:", e)
+        # sys.print_exception(e)
+
+
+
+
+
+#        End of New Logic
+
+#        print("Server started. Waiting for connections...")
+
+#    try:
+#        client, addr = server.accept()
+#        client.setblocking(False)
+#        clients.append(client)
+#        print("Connected to " + addr[0] + ":" + str(addr[1]))
+#    except OSError:
+#        pass
+
+#    readable, _, _ = select.select(clients, [], [], 0.05)
+#    for client in readable:
+#        handle_client(client)
+#        clients.remove(client)
