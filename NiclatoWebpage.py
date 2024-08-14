@@ -2,7 +2,6 @@ import sensor
 import time
 import network
 import socket
-import select
 from machine import UART
 
 # UART setup
@@ -43,7 +42,6 @@ def handle_button_press(button_id):
         uart.write("Stop\n")
 
 def serve_html(client):
-#    data = client.recv(1024)
     html = (
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n\r\n"
@@ -57,7 +55,7 @@ def serve_html(client):
         "</style>"
         "</head>"
         "<body><h1>MJPEG Stream</h1>"
-        "<img src='/stream' width='480' height='720' />"
+        "<img id='videoStream' src='/stream' width='480' height='720' />"
         "<div class='container'>"
         "<h2>Motor Controls</h2>"
         "<div class='button-container'>"
@@ -73,14 +71,18 @@ def serve_html(client):
         ".then(response => console.log(buttonId + ' pressed'))"
         ".catch(error => console.error('Error:', error));"
         "}"
+        "function refreshImage() {"
+        "const image = document.getElementById('videoStream');"
+        "image.src = '/stream?' + new Date().getTime();"
+        "}"
+        "setInterval(refreshImage, 1);"
         "</script>"
         "</body></html>\r\n"
     )
     client.send(html)
+    client.close()
 
-
-def start_streaming(client,data):
-#    data = client.recv(1024)
+def start_streaming(client, server):
     clock = time.clock()
     client.send(
         "HTTP/1.1 200 OK\r\n"
@@ -89,9 +91,10 @@ def start_streaming(client,data):
         "Cache-Control: no-cache\r\n"
         "Pragma: no-cache\r\n\r\n"
     )
-#    print(clock.fps())
+
     while True:
         clock.tick()
+        print(clock)
         frame = sensor.snapshot()
         cframe = frame.to_jpeg(quality=35, copy=True)
         header = (
@@ -106,117 +109,57 @@ def start_streaming(client,data):
         except OSError:
             break  # Exit the loop if the client disconnects
 
-        client.settimeout(0)
-        if "POST /" in data:
+        # Time-slice: check for new connections or commands
+        server.settimeout(0.01)  # Brief timeout to prevent blocking
+        try:
+            new_client, addr = server.accept()
+            # If a new client connects, break the loop to handle the new client
+            client.close()
+            handle_client(new_client, server)
+            time.sleep(1)
+            continue
+        except OSError:
+            pass  # No new connection, continue streaming
+
+def handle_client(client, server):
+    try:
+        data = client.recv(1024)
+        if "GET / " in data or "GET /HTTP" in data:
+            serve_html(client)
+        elif "POST /" in data:
             if "POST /button1" in data:
-               handle_button_press("button1")
+                handle_button_press("button1")
             elif "POST /button2" in data:
-               handle_button_press("button2")
+                handle_button_press("button2")
             elif "POST /button3" in data:
-               handle_button_press("button3")
+                handle_button_press("button3")
             elif "POST /button4" in data:
-               handle_button_press("button4")
+                handle_button_press("button4")
             elif "POST /button5" in data:
-               handle_button_press("button5")
-            else:
-                continue
-        client.settimeout(None)
-
-#    print(clock.fps())
-
-
-#def handle_client(client):
-#    try:
-#        data = client.recv(1024).decode('utf-8')
-#        if "GET / " in data or "GET /HTTP" in data:
-#            serve_html(client)
-#            start_streaming(client)
-#            print("Streaming ok 2 \n")
-#        elif "GET /stream" in data:
-#            start_streaming(client)
-#            print("Streaming ok \n")
-#        elif "POST /" in data:
-#            if "POST /button1" in data:
-#                handle_button_press("button1")
-#            elif "POST /button2" in data:
-#                handle_button_press("button2")
-#            elif "POST /button3" in data:
-#                handle_button_press("button3")
-#            elif "POST /button4" in data:
-#                handle_button_press("button4")
-#            elif "POST /button5" in data:
-#                handle_button_press("button5")
-#        else:
-#            start_streaming(client)
-#            print("Streaming ok 2 \n")
-
-#        start_streaming(client)
-#        print("Streaming ok \n")
-#        client.send("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
-       # client.close()
-
-#    except OSError:
-#        client.close()
+                handle_button_press("button5")
+            client.close()
+        else:  # elif "GET /stream" in data:
+            start_streaming(client, server)
+    except OSError as e:
+        client.close()
+        print("Client socket error:", e)
 
 server = None
-#clients = []
 
 while True:
     if server is None:
         # Create server socket
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True)
-        # Bind and listen
         server.bind([HOST, PORT])
         server.listen(5)
-        # Set server socket to blocking
-#        server.setblocking(True)
         print("Server started. Waiting for connections...")
 
     try:
-#        print("Waiting for connections..")
         client, addr = server.accept()
+        print("Connected to " + addr[0] + ":" + str(addr[1]))
+        handle_client(client, server)
     except OSError as e:
         server.close()
         server = None
-        print("server socket error:", e)
-        continue
-
-    try:
-        # set client socket timeout to 2s
-#        client.settimeout(5.0)
-        print("Connected to " + addr[0] + ":" + str(addr[1]))
-
-        # Read initial request
-        data = client.recv(1024)
-        if "GET / " in data or "GET /HTTP" in data:
-            serve_html(client)
-        elif "GET /stream" in data:
-            start_streaming(client,data)
-
-
-    except OSError as e:
-        client.close()
-        print("client socket error:", e)
-        # sys.print_exception(e)
-
-
-
-
-
-#        End of New Logic
-
-#        print("Server started. Waiting for connections...")
-
-#    try:
-#        client, addr = server.accept()
-#        client.setblocking(False)
-#        clients.append(client)
-#        print("Connected to " + addr[0] + ":" + str(addr[1]))
-#    except OSError:
-#        pass
-
-#    readable, _, _ = select.select(clients, [], [], 0.05)
-#    for client in readable:
-#        handle_client(client)
-#        clients.remove(client)
+        print("Server socket error:", e)
