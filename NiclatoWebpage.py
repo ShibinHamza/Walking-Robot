@@ -55,7 +55,7 @@ def serve_html(client):
         "</style>"
         "</head>"
         "<body><h1>MJPEG Stream</h1>"
-        "<img id='videoStream' src='/stream' width='480' height='720' />"
+        "<img id='videoStream' src='/snapshot' width='480' height='720' />"
         "<div class='container'>"
         "<h2>Motor Controls</h2>"
         "<div class='button-container'>"
@@ -73,55 +73,27 @@ def serve_html(client):
         "}"
         "function refreshImage() {"
         "const image = document.getElementById('videoStream');"
-        "image.src = '/stream?' + new Date().getTime();"
+        "image.src = '/snapshot?' + new Date().getTime();"
         "}"
-        "setInterval(refreshImage, 1);"
+        "setInterval(refreshImage, 100);"
         "</script>"
         "</body></html>\r\n"
     )
     client.send(html)
     client.close()
 
-def start_streaming(client, server):
-    clock = time.clock()
+def serve_snapshot(client):
+    frame = sensor.snapshot()
+    cframe = frame.to_jpeg(quality=35)
     client.send(
         "HTTP/1.1 200 OK\r\n"
-        "Server: OpenMV\r\n"
-        "Content-Type: multipart/x-mixed-replace;boundary=openmv\r\n"
-        "Cache-Control: no-cache\r\n"
-        "Pragma: no-cache\r\n\r\n"
+        "Content-Type: image/jpeg\r\n"
+        "Content-Length:" + str(len(cframe)) + "\r\n\r\n"
     )
+    client.send(cframe)
+    client.close()
 
-    while True:
-        clock.tick()
-        print(clock)
-        frame = sensor.snapshot()
-        cframe = frame.to_jpeg(quality=35, copy=True)
-        header = (
-            "\r\n--openmv\r\n"
-            "Content-Type: image/jpeg\r\n"
-            "Content-Length:" + str(cframe.size()) + "\r\n\r\n"
-        )
-
-        try:
-            client.sendall(header)
-            client.sendall(cframe)
-        except OSError:
-            break  # Exit the loop if the client disconnects
-
-        # Time-slice: check for new connections or commands
-        server.settimeout(0.01)  # Brief timeout to prevent blocking
-        try:
-            new_client, addr = server.accept()
-            # If a new client connects, break the loop to handle the new client
-            client.close()
-            handle_client(new_client, server)
-            time.sleep(1)
-            continue
-        except OSError:
-            pass  # No new connection, continue streaming
-
-def handle_client(client, server):
+def handle_client(client):
     try:
         data = client.recv(1024)
         if "GET / " in data or "GET /HTTP" in data:
@@ -138,8 +110,10 @@ def handle_client(client, server):
             elif "POST /button5" in data:
                 handle_button_press("button5")
             client.close()
-        else:  # elif "GET /stream" in data:
-            start_streaming(client, server)
+        elif "GET /snapshot" in data:
+            serve_snapshot(client)
+        else:
+            client.close()
     except OSError as e:
         client.close()
         print("Client socket error:", e)
@@ -157,8 +131,8 @@ while True:
 
     try:
         client, addr = server.accept()
-        print("Connected to " + addr[0] + ":" + str(addr[1]))
-        handle_client(client, server)
+#        print("Connected to " + addr[0] + ":" + str(addr[1]))
+        handle_client(client)
     except OSError as e:
         server.close()
         server = None
